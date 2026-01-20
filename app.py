@@ -17,28 +17,33 @@ def find_header_row(df):
     return 0
 
 def clean_price(val):
-    if pd.isna(val) or str(val).strip() == '-':
-        return 0.0  # Retornamos 0.0 en lugar de None para facilitar cálculos matemáticos
+    # 1. Si ya es un número (float o int), lo devolvemos tal cual.
+    # Esto evita que '2.115' (float) se convierta en '2115' por error.
+    if isinstance(val, (int, float)):
+        return float(val)
+        
+    if pd.isna(val) or str(val).strip() == '-' or str(val).strip() == '':
+        return 0.0
     
     val_str = str(val)
+    # Eliminar símbolos de moneda
     val_str = re.sub(r'(ARS|USD|\$)\s*', '', val_str, flags=re.IGNORECASE).strip()
     
-    # Lógica para formato latino (1.000,50) vs americano
-    if ',' in val_str and '.' in val_str:
-        if val_str.find('.') < val_str.find(','): 
-            val_str = val_str.replace('.', '').replace(',', '.')
-        else:
-            val_str = val_str.replace(',', '')
-    elif ',' in val_str:
-        val_str = val_str.replace(',', '.')
-    else:
-        # Si no hay coma, asumimos que los puntos son miles y los quitamos
-        val_str = val_str.replace('.', '')
-        
+    # Lógica estricta para formato Argentino/Español:
+    # 1. Los puntos '.' son separadores de miles -> Se eliminan.
+    # 2. Las comas ',' son separadores decimales -> Se cambian por punto '.' para Python.
+    
+    # Ejemplo: "2.120,50" -> quitamos punto -> "2120,50" -> cambiamos coma -> "2120.50"
+    # Ejemplo caso TQQQ: "2,115" -> quitamos punto (no hay) -> "2,115" -> cambiamos coma -> "2.115"
+    
+    val_str = val_str.replace('.', '') # Paso 1: Eliminar puntos de miles
+    val_str = val_str.replace(',', '.') # Paso 2: Convertir coma decimal a punto
+    
     try:
         return float(val_str)
     except ValueError:
         return 0.0
+
 
 def extract_ticker(simbolo_str, is_usd_file=False):
     if pd.isna(simbolo_str): return None
@@ -138,3 +143,4 @@ if file_ars and file_usd:
             )
             
             st.caption("Nota: 'Cpra' y 'Vta' se refieren a las puntas Bid/Ask del mercado. El cálculo usa el promedio de puntas para el TC Implícito.")
+
